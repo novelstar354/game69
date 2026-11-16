@@ -112,8 +112,8 @@ button,input{font:inherit}button{border:1px solid #00ddeb;background:linear-grad
 'use strict';
 const $=id=>document.getElementById(id);
 // オンライン接続先：公開可能なProject URLとpublishable/anon keyを一度だけここに設定。プレイヤー側の入力は不要。
-const SUPABASE_URL='PASTE_YOUR_SUPABASE_PROJECT_URL_HERE';
-const SUPABASE_ANON_KEY='PASTE_YOUR_SUPABASE_PUBLISHABLE_OR_ANON_KEY_HERE';
+const SUPABASE_URL='https://ftmsywsapyxoakiezhjl.supabase.co';
+const SUPABASE_ANON_KEY='sb_publishable_0rswfUUX0fN26G1Z7uWe9Q_aeCAaeS9';
 const COLS=10,ROWS=20,SIZE=30;
 const pieces={I:[[1,1,1,1]],O:[[1,1],[1,1]],T:[[0,1,0],[1,1,1]],L:[[0,0,1],[1,1,1]],J:[[1,0,0],[1,1,1]],S:[[0,1,1],[1,1,0]],Z:[[1,1,0],[0,1,1]]};
 const colors={I:'#00f7ff',O:'#ffe600',T:'#c400ff',L:'#ff8800',J:'#0066ff',S:'#00ff88',Z:'#ff0044'};
