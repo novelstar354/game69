@@ -63,15 +63,41 @@ button,input{font:inherit}button{border:1px solid #00ddeb;background:linear-grad
 <section id="accountScreen">
   <div class="account-grid">
     <div class="account-box">
-      <h2>PLAYER ACCOUNT</h2>
-      <p class="muted">メールアドレスとパスワードで登録・ログインします。同じアカウントなら別端末でも戦績を引き継げます。</p>
-      <label class="muted">メールアドレス</label><input id="authEmail" type="email" autocomplete="email" placeholder="name@example.com">
-      <label class="muted">パスワード（8文字以上）</label><input id="authPassword" type="password" autocomplete="current-password" placeholder="8文字以上">
-      <label class="muted">プレイヤー名</label><input id="authPlayerName" maxlength="16" placeholder="PLAYER">
-      <div class="account-actions"><button id="signUpBtn">新規登録</button><button id="signInBtn" class="pink">ログイン</button></div>
-      <div class="status" id="authStatus"></div>
-      <div class="account-actions"><button id="signOutBtn" class="subtle">ログアウト</button><button id="accountBack" class="subtle">タイトルへ戻る</button></div>
-    </div>
+  <h2>PLAYER ACCOUNT</h2>
+  <p class="muted">
+    オリジナルIDとパスワードで登録・ログインできます。
+    メールアドレスは不要です。
+  </p>
+
+  <label class="muted">オリジナルID（3〜20文字）</label>
+  <input id="authUserId"
+         maxlength="20"
+         autocomplete="username"
+         placeholder="例：Player_001">
+
+  <label class="muted">パスワード（8文字以上）</label>
+  <input id="authPassword"
+         type="password"
+         autocomplete="current-password"
+         placeholder="8文字以上">
+
+  <label class="muted">プレイヤー名（任意）</label>
+  <input id="authPlayerName"
+         maxlength="16"
+         placeholder="PLAYER">
+
+  <div class="account-actions">
+    <button id="signUpBtn">新規登録</button>
+    <button id="signInBtn" class="pink">ログイン</button>
+  </div>
+
+  <div class="status" id="authStatus"></div>
+
+  <div class="account-actions">
+    <button id="signOutBtn" class="subtle">ログアウト</button>
+    <button id="accountBack" class="subtle">タイトルへ戻る</button>
+  </div>
+</div>
     <div class="account-box">
       <h2>MY PROFILE</h2>
       <div id="profileName" style="font-size:20px;color:#fff">ゲスト</div>
@@ -118,7 +144,13 @@ const COLS=10,ROWS=20,SIZE=30;
 const pieces={I:[[1,1,1,1]],O:[[1,1],[1,1]],T:[[0,1,0],[1,1,1]],L:[[0,0,1],[1,1,1]],J:[[1,0,0],[1,1,1]],S:[[0,1,1],[1,1,0]],Z:[[1,1,0],[0,1,1]]};
 const colors={I:'#00f7ff',O:'#ffe600',T:'#c400ff',L:'#ff8800',J:'#0066ff',S:'#00ff88',Z:'#ff0044'};
 let sb=null,authUser=null,myProfile=null,channel=null,queueChannel=null,queueTimer=null,roomId='',playerId=crypto.randomUUID(),playerName='PLAYER',opponentId=null,opponentUserId=null,opponentName='OPPONENT',isHost=false,started=false,finished=false,gameMode='solo',onlineKind='',cpuMode=false,cpuClock=0,resultRecorded=false,remote={board:Array.from({length:ROWS},()=>Array(COLS).fill(0)),score:0,lines:0,combo:0,gameOver:false};
-let board,current,next,hold=null,x=3,y=0,score=0,combo=0,linesCleared=0,dropInterval=800,dropCounter=0,lastTime=0,holdUsed=false,lastMoveRotate=false,particles=[],shockwaves=[],lasers=[],effectTimer=0,effectText='',gameOver=false,paused=false,backToBack=false,lastNet=0,sendTimer=0;
+let board,current,next,hold=null,x=3,y=0,score=0,combo=0,
+linesCleared=0,level=1,lockTimer=0,
+dropInterval=800,dropCounter=0,lastTime=0,
+holdUsed=false,lastMoveRotate=false,
+particles=[],shockwaves=[],lasers=[],
+effectTimer=0,effectText='',gameOver=false,
+paused=false,backToBack=false,lastNet=0,sendTimer=0;
 const canvas=$('game'),ctx=canvas.getContext('2d'),enemyCanvas=$('enemyGame'),enemyCtx=enemyCanvas.getContext('2d'),nextCtx=$('next').getContext('2d'),holdCtx=$('hold').getContext('2d');
 function status(id,msg){$(id).textContent=msg}
 function setView(view){$('titleScreen').style.display=view==='title'?'flex':'none';$('accountScreen').style.display=view==='account'?'block':'none';$('onlineMenu').style.display=view==='online'?'flex':'none';$('lobby').style.display=view==='lobby'?'block':'none';$('gameArea').style.display=view==='game'?'block':'none'}
@@ -375,11 +407,11 @@ async function connectAndJoin(code,host){if(!sb){status('lobbyStatus','Supabase�
  channel.on('broadcast',{event:'state'},({payload})=>receiveState(payload));channel.on('broadcast',{event:'attack'},({payload})=>receiveAttack(payload));channel.on('broadcast',{event:'game_end'},({payload})=>{if(payload?.from!==playerId&&!finished){finished=true;gameOver=true;recordMatchResult(true);showResult('VICTORY','相手がゲームオーバーになりました。あなたの勝ちです！')}});channel.on('broadcast',{event:'restart'},({payload})=>{if(payload?.from!==playerId){started=true;finished=false;resultRecorded=false;initGame();resetRemote();$('result').style.display='none';setView('game');status('lobbyStatus','再戦を開始しました')}});
  channel.subscribe(async s=>{if(s==='SUBSCRIBED'){await channel.track({name:playerName,userId:authUser?.id||null,joinedAt:Date.now()});$('roomLabel').textContent='ROOM '+roomId;gameMode='online';$('modeLabel').textContent=(onlineKind||'FRIEND').toUpperCase();setView('game');$('myName').textContent=playerName;status('lobbyStatus','接続しました。相手の参加を待っています...')}})
 }
-function startMatch(){if(started&&gameMode!=='online')return;started=true;finished=false;resultRecorded=false;cpuMode=false;$('modeLabel').textContent=(onlineKind||'FRIEND').toUpperCase();$('gameArea').querySelector('.arena').classList.remove('single');initGame();resetRemote();setView('game');$('myName').textContent=playerName;$('enemyName').textContent=opponentName;$('connection').textContent='対戦中';publishState()}
+function startMatch(){if(started&&gameMode==='online'&&!finished)return;started=true;finished=false;resultRecorded=false;cpuMode=false;$('modeLabel').textContent=(onlineKind||'FRIEND').toUpperCase();$('gameArea').querySelector('.arena').classList.remove('single');initGame();resetRemote();setView('game');$('myName').textContent=playerName;$('enemyName').textContent=opponentName;$('connection').textContent='対戦中';publishState()}
 function generateRoom(){return String(Math.floor(100000+Math.random()*900000))}
 function initSupabase(){if(sb)return true;if(!SUPABASE_URL.startsWith('https://')||SUPABASE_ANON_KEY.includes('PASTE_YOUR_')){alert('管理者による初回設定が必要です。配布前にHTML内のSUPABASE_URLとSUPABASE_ANON_KEYへSupabaseのProject URLとPublishable keyを設定してください。');return false}try{sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{realtime:{params:{eventsPerSecond:30}}});return true}catch(e){alert('Supabase接続エラー: '+e.message);return false}}
 function openLocal(mode){gameMode=mode;onlineKind='';cpuMode=false;started=true;finished=false;resultRecorded=false;opponentName='';$('modeLabel').textContent=mode==='solo'?'SOLO':'LOCAL MULTI';$('enemyName').textContent='';$('connection').textContent='LOCAL';$('roomLabel').textContent='';$('gameArea').querySelector('.arena').classList.toggle('single',mode==='solo');$('gameSideDummy');setView('game');$('myName').textContent=playerName;resetRemote();initGame();if(mode==='multi'){opponentName='CPU';cpuMode=true;$('enemyName').textContent='CPU';$('connection').textContent='CPU BATTLE';$('gameArea').querySelector('.arena').classList.remove('single')} }
-async function queueFor(kind){if(!initSupabase())return;onlineKind=kind;gameMode='online';cpuMode=false;status('lobbyStatus',kind.toUpperCase()+' マッチング中...');setView('lobby');if(queueChannel){await sb.removeChannel(queueChannel);queueChannel=null}queueChannel=sb.channel('blocks-neon-queue-'+kind,{config:{presence:{key:playerId},broadcast:{self:false}}});queueChannel.on('presence',{event:'sync'},async()=>{const ids=Object.keys(queueChannel.presenceState()).sort();if(ids.length>=2&&ids.includes(playerId)){const pair=ids.slice(0,2);if(!pair.includes(playerId))return;const code=''+Array.from(pair.join('').replace(/-/g,'')).reduce((a,c)=>((a*31+c.charCodeAt(0))>>>0),7).toString().slice(-6).padStart(6,'0');if(queueTimer){clearTimeout(queueTimer);queueTimer=null}const host=pair[0]===playerId;await sb.removeChannel(queueChannel);queueChannel=null;connectAndJoin(code,host)}});queueChannel.subscribe(async st=>{if(st==='SUBSCRIBED'){await queueChannel.track({name:playerName,userId:authUser?.id||null,kind,at:Date.now()});status('lobbyStatus','対戦相手を探しています...');if(kind==='free'){queueTimer=setTimeout(()=>{if(!started){if(queueChannel){sb.removeChannel(queueChannel);queueChannel=null}startCPUFallback()}},15000)}}});}
+async function queueFor(kind){if(!initSupabase())return;if(kind==='rank'&&!authUser){setView('account');status('authStatus','ランクマッチにはログインが必要です。');return}onlineKind=kind;gameMode='online';cpuMode=false;status('lobbyStatus',kind.toUpperCase()+' マッチング中...');setView('lobby');if(queueChannel){await sb.removeChannel(queueChannel);queueChannel=null}queueChannel=sb.channel('blocks-neon-queue-'+kind,{config:{presence:{key:playerId},broadcast:{self:false}}});queueChannel.on('presence',{event:'sync'},async()=>{if(!queueChannel)return;const ids=Object.keys(queueChannel.presenceState()).sort();if(ids.length>=2&&ids.includes(playerId)){const pair=ids.slice(0,2);if(!pair.includes(playerId))return;const code=''+Array.from(pair.join('').replace(/-/g,'')).reduce((a,c)=>((a*31+c.charCodeAt(0))>>>0),7).toString().slice(-6).padStart(6,'0');if(queueTimer){clearTimeout(queueTimer);queueTimer=null}const host=pair[0]===playerId;await sb.removeChannel(queueChannel);queueChannel=null;connectAndJoin(code,host)}});queueChannel.subscribe(async st=>{if(st==='SUBSCRIBED'){await queueChannel.track({name:playerName,userId:authUser?.id||null,kind,at:Date.now()});status('lobbyStatus','対戦相手を探しています...');if(kind==='free'){queueTimer=setTimeout(()=>{if(!started){if(queueChannel){sb.removeChannel(queueChannel);queueChannel=null}startCPUFallback()}},15000)}}});}
 function startCPUFallback(){gameMode='online';cpuMode=true;started=true;finished=false;resultRecorded=false;opponentName='NEON CPU';$('modeLabel').textContent='FREE MATCH · CPU';$('enemyName').textContent=opponentName;$('connection').textContent='CPU BATTLE';$('roomLabel').textContent='FREE';$('gameArea').querySelector('.arena').classList.remove('single');setView('game');$('myName').textContent=playerName;initGame();resetRemote();status('lobbyStatus','相手が見つからなかったためCPU戦を開始しました。');}
 function startFriend(){if(!initSupabase())return;gameMode='online';onlineKind='friend';setView('lobby');status('lobbyStatus','ルームを作成するか、友達のルームIDを入力してください。')}
 
@@ -389,8 +421,13 @@ async function loadAccount(){
  if(!initSupabase())return;
  const {data:{session}}=await sb.auth.getSession();authUser=session?.user||null;
  if(authUser){playerId=authUser.id;const {data,error}=await sb.from('blocks_neon_profiles').select('*').eq('id',authUser.id).maybeSingle();if(error){status('authStatus','プロフィール取得エラー: '+error.message);return}
-  myProfile=data;playerName=data?.display_name||authUser.email?.split('@')[0]||'PLAYER';localStorage.setItem('bn_name',playerName);
-  $('profileName').textContent=playerName;$('profileEmail').textContent=authUser.email||'';$('profileRating').textContent=data?.rating??1000;$('profileWins').textContent=data?.wins??0;$('profileLosses').textContent=data?.losses??0;$('profileRank').textContent=rankName(data?.rating??1000);$('profileExtra').textContent='対戦数 '+(data?.matches??0)+' / '+(data?.rating_games??0)+' rated matches';
+  playerName =
+  data?.display_name ||
+  authUser.user_metadata?.display_name ||
+  authUser.user_metadata?.user_id ||
+  'PLAYER';localStorage.setItem('bn_name',playerName);
+  $('profileName').textContent=playerName;$('profileEmail').textContent =
+  'ID: ' + (authUser.user_metadata?.user_id || '不明');$('profileRating').textContent=data?.rating??1000;$('profileWins').textContent=data?.wins??0;$('profileLosses').textContent=data?.losses??0;$('profileRank').textContent=rankName(data?.rating??1000);$('profileExtra').textContent='対戦数 '+(data?.matches??0)+' / '+(data?.rating_games??0)+' rated matches';
   $('authPlayerName').value=playerName;$('signOutBtn').disabled=false;
  }else{$('profileName').textContent='ゲスト';$('profileEmail').textContent='ログインしていません';$('profileRating').textContent='---';$('profileWins').textContent='0';$('profileLosses').textContent='0';$('profileRank').textContent='UNRANKED';$('profileExtra').textContent='アカウント登録またはログインしてください。';$('signOutBtn').disabled=true}
  await loadLeaderboard();
@@ -410,19 +447,86 @@ async function recordMatchResult(won){
  if(error){console.warn('Rating update failed:',error.message);status('lobbyStatus','戦績保存エラー: '+error.message);return}
  if(data?.rating!==undefined){status('lobbyStatus',`戦績保存完了：${data.old_rating} → ${data.rating} (${data.delta>=0?'+':''}${data.delta})`);await loadAccount()}
 }
-async function authAction(kind){
- if(!initSupabase())return;
- const email=$('authEmail').value.trim(),password=$('authPassword').value,name=$('authPlayerName').value.trim().slice(0,16)||email.split('@')[0]||'PLAYER';
- if(!email||password.length<8){status('authStatus','メールアドレスと8文字以上のパスワードを入力してください。');return}
- status('authStatus','処理中...');
- let result;
- if(kind==='signup')result=await sb.auth.signUp({email,password,options:{data:{display_name:name}}});
- else result=await sb.auth.signInWithPassword({email,password});
- if(result.error){status('authStatus',result.error.message);return}
- authUser=result.data.user||result.data.session?.user||null;
- if(kind==='signup'&&!result.data.session){status('authStatus','確認メールを送信しました。メール確認後にログインしてください。Supabase Authのメール確認設定を確認してください。');return}
- if(authUser){playerId=authUser.id;status('authStatus','ログインしました。');await loadAccount()}
+
+async function authAction(kind) {
+  if (!initSupabase()) return;
+
+  const userId = $("authUserId").value.trim();
+  const password = $("authPassword").value;
+  const name =
+    $("authPlayerName").value.trim().slice(0, 16) || userId;
+
+  if (!/^[A-Za-z0-9_]{3,20}$/.test(userId)) {
+    status("authStatus", "IDは半角英数字と_のみ、3〜20文字で入力してください。");
+    return;
+  }
+
+  if (password.length < 8 || password.length > 72) {
+    status("authStatus", "パスワードは8〜72文字にしてください。");
+    return;
+  }
+
+  status("authStatus", "認証処理中...");
+
+  try {
+    const { data, error } = await sb.functions.invoke(
+      "blocks-neon-auth",
+      {
+        body: {
+          action: kind,
+          userId,
+          password,
+          displayName: name
+        }
+      }
+    );
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    if (data?.error) {
+      status("authStatus", data.error);
+      return;
+    }
+
+    if (!data?.session) {
+      status("authStatus", "認証セッションを取得できませんでした。");
+      return;
+    }
+
+    const { data: sessionData, error: sessionError } =
+      await sb.auth.setSession({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token
+      });
+
+    if (sessionError) throw sessionError;
+
+    authUser = sessionData.user || data.user;
+
+    playerId = authUser.id;
+    playerName =
+      authUser.user_metadata?.display_name ||
+      authUser.user_metadata?.user_id ||
+      userId;
+
+    localStorage.setItem("bn_name", playerName);
+
+    status(
+      "authStatus",
+      kind === "signup"
+        ? "アカウント登録完了！"
+        : "ログインしました！"
+    );
+
+    await loadAccount();
+
+  } catch (error) {
+    status("authStatus", "認証エラー：" + error.message);
+  }
 }
+
 
 
 function retryCurrentGame(){
@@ -500,6 +604,8 @@ function update(time=0){
 // プレイヤー名のみ保存。接続情報はHTML側に固定し、ゲーム開始時の設定画面をなくす。
 playerName=localStorage.getItem('bn_name')||'PLAYER';
 $('myName').textContent=playerName;setView('title');
+// タイトル画面中も描画処理が参照する盤面を先に初期化
+initGame();started=false;gameOver=false;finished=false;resetRemote();
 if(SUPABASE_URL.startsWith('https://')&&!SUPABASE_ANON_KEY.includes('PASTE_YOUR_')){initSupabase();sb.auth.getSession().then(async({data})=>{authUser=data.session?.user||null;if(authUser){playerId=authUser.id;await loadAccount()}})}
 requestAnimationFrame(update);
 })();
