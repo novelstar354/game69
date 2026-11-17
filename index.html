@@ -586,43 +586,48 @@ function useSoloItem(){
     return;
   }
 
-  // 左から右へ消していくアニメーションを開始
- itemClearAnimation={
-  rows:selected.slice(),
-  col:0,
-  lastStep:Date.now(),
-  interval:55
+ 
+
+// 通常のライン消去風アニメーションを開始
+itemClearAnimation = {
+  rows: selected.slice(),
+  col: 0,
+  lastStep: Date.now(),
+  interval: 30
 };
 
-  effectText='ITEM CLEAR';
-  effectTimer=0;
+effectText = 'ITEM CLEAR';
+effectTimer = 0;
 
-  draw();
+draw();
 }
 // ライン削除アニメーション終了
 function finishSoloItemClearAnimation(){
-
   if(!itemClearAnimation)return;
 
-  // 対象ラインを下から順番に削除
-  const rows=itemClearAnimation.rows
+  const rows = itemClearAnimation.rows
     .slice()
     .sort((a,b)=>b-a);
 
+  // 通常のライン消去と同じ衝撃波
+  spawnShockwave();
+
+  // 対象ラインを下から順番に削除
   for(const r of rows){
     board.splice(r,1);
     board.unshift(Array(COLS).fill(0));
   }
 
-  itemClearAnimation=null;
+  itemClearAnimation = null;
 
-  effectText=`ITEM CLEAR ×${rows.length}`;
-  effectTimer=45;
+  effectText = `ITEM CLEAR ×${rows.length}`;
+  effectTimer = 45;
 
   updateUI();
   publishState();
   draw();
 }
+
 let board,current,next,hold=null,x=3,y=0,score=0,combo=0,
 linesCleared=0,level=1,lockTimer=0,garbageReceived=0,
 dropInterval=800,dropCounter=0,lastTime=0,
@@ -843,26 +848,24 @@ function drawBoard(target,canv,sourceBoard,showGrid=true){target.clearRect(0,0,c
 
 function draw(){
  ctx.clearRect(0,0,canvas.width,canvas.height);
-  // 盤面描画
- board.forEach((row,ry)=>{
+// 盤面描画
+board.forEach((row,ry)=>{
   row.forEach((val,cx)=>{
+    if(!val)return;
 
-   if(!val)return;
+    let hidden = false;
 
-   let hidden=false;
+    if(itemClearAnimation &&
+       itemClearAnimation.rows.includes(ry) &&
+       cx < itemClearAnimation.col){
+      hidden = true;
+    }
 
-   if(itemClearAnimation){
-
-    const index=itemClearAnimation.rows.indexOf(ry);
-if(index!==-1 && cx<itemClearAnimation.col) hidden=true;
-   }
-
-   if(!hidden){
-     drawCell(cx,ry,val,false,ctx);
-   }
-
+    if(!hidden){
+      drawCell(cx,ry,val,false,ctx);
+    }
   });
- });
+});
  if(current&&!gameOver){
   let gy=y;while(!collision(x,gy+1))gy++;
   current.shape.forEach((r,ry)=>r.forEach((v,cx)=>{
@@ -1291,6 +1294,17 @@ function update(time=0){
 
     if(now-itemClearAnimation.lastStep>=itemClearAnimation.interval){
       itemClearAnimation.lastStep=now;
+
+      // 今回消える列に通常と同じ爆発エフェクトを発生
+      const col=itemClearAnimation.col;
+
+      itemClearAnimation.rows.forEach(r=>{
+        const value=board[r]?.[col];
+        if(value){
+          spawnExplosion(col,r,"#00f7ff");
+        }
+      });
+
       itemClearAnimation.col++;
 
       if(itemClearAnimation.col>=COLS){
